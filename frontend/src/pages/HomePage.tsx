@@ -1,6 +1,16 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
+import { useWallet, useConnection } from '@solana/wallet-adapter-react'
+import { useWalletModal } from '@solana/wallet-adapter-react-ui'
+import { Transaction, SystemProgram, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import { CARDS } from '../data/cards'
 import { CardTile } from '../components/CardTile'
+
+interface DrawnCard {
+  id: string
+  name: string
+  ticker: string
+  image_url: string
+}
 
 const PACK_IMAGE = 'https://pumppacks.app/__l5e/assets-v1/d0560df1-81ce-44ff-ae5f-342712a2c5e4/pump-pack.png'
 const PACK_LAYERS = [
@@ -11,24 +21,66 @@ const PACK_LAYERS = [
   { z: -1.5, y: 0.6, brightness: 0.85, blur: 0.15 },
 ]
 
+const TEST_RECIPIENT = new PublicKey('vEeSPZdVd4S8owp686hhfqwtwZr337zJGd5YqDEDUMM')
+const BUY_PACK_AMOUNT = 0.5
+
 function PackDemo() {
+  const { publicKey, sendTransaction } = useWallet()
+  const { connection } = useConnection()
+  const { setVisible } = useWalletModal()
   const [isOpening, setIsOpening] = useState(false)
-  const [drawnCards, setDrawnCards] = useState<typeof CARDS>([])
+  const [drawnCards, setDrawnCards] = useState<DrawnCard[]>([])
   const [showCards, setShowCards] = useState(false)
+  const [error, setError] = useState('')
   const packRef = useRef<HTMLButtonElement>(null)
 
-  const handleDemoPull = () => {
-    if (isOpening) return
+  const handleBuyPack = useCallback(async () => {
+    setError('')
+    if (!publicKey) {
+      setVisible(true)
+      return
+    }
     setIsOpening(true)
     setShowCards(false)
     setDrawnCards([])
-    setTimeout(() => {
-      const shuffled = [...CARDS].sort(() => Math.random() - 0.5)
-      setDrawnCards(shuffled.slice(0, 3))
+
+    try {
+      const { blockhash } = await connection.getLatestBlockhash()
+
+      const tx = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: TEST_RECIPIENT,
+          lamports: BUY_PACK_AMOUNT * LAMPORTS_PER_SOL,
+        }),
+      )
+      tx.recentBlockhash = blockhash
+      tx.feePayer = publicKey
+
+      const signature = await sendTransaction(tx, connection)
+
+      await connection.confirmTransaction(signature, 'confirmed')
+
+      const res = await fetch('http://localhost:8000/buy-pack', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          buyer_wallet: publicKey.toString(),
+          tx_signature: signature,
+        }),
+      })
+
+      if (!res.ok) throw new Error('Backend request failed')
+
+      const data = await res.json()
+      setDrawnCards(data.cards)
       setShowCards(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Transaction failed')
+    } finally {
       setIsOpening(false)
-    }, 800)
-  }
+    }
+  }, [publicKey, sendTransaction, connection, setVisible])
 
   return (
     <div className="relative w-full max-w-md mx-auto">
@@ -98,7 +150,7 @@ function PackDemo() {
               style={{ animationDelay: `${i * 120}ms` }}
             >
               <img
-                src={card.image}
+                src={card.image_url}
                 alt={card.name}
                 className="w-full object-contain rounded-lg"
                 style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))' }}
@@ -109,6 +161,13 @@ function PackDemo() {
         </div>
       )}
 
+      {/* Error */}
+      {error && (
+        <div className="mt-3 text-xs font-mono text-center" style={{ color: 'hsl(var(--destructive))' }}>
+          {error}
+        </div>
+      )}
+
       {/* Buy UI */}
       <div className="mt-6 space-y-3">
         <div className="flex items-center justify-between rounded-md px-4 py-3" style={{ background: 'hsl(var(--background) / 0.6)', border: '1px solid hsl(var(--border))' }}>
@@ -116,6 +175,8 @@ function PackDemo() {
           <span className="font-mono font-semibold text-lg" style={{ color: 'hsl(var(--primary))' }}>0.5 SOL</span>
         </div>
         <button
+          onClick={handleBuyPack}
+          disabled={isOpening}
           className="w-full rounded-md py-3.5 text-sm font-semibold tracking-[0.2em] transition-all disabled:opacity-50 hover:opacity-90 hover:-translate-y-0.5 active:translate-y-0"
           style={{
             background: 'hsl(var(--primary))',
@@ -123,17 +184,29 @@ function PackDemo() {
             boxShadow: '0 3px 0 hsl(145 50% 35%), 0 6px 14px hsl(var(--primary) / 0.3)',
           }}
         >
-          BUY PACK · 0.5 SOL
+          {isOpening ? 'BUYING...' : publicKey ? 'BUY PACK · 0.5 SOL' : 'CONNECT WALLET'}
         </button>
         <button
-          onClick={handleDemoPull}
+          onClick={() => {
+            if (isOpening) return
+            setIsOpening(true)
+            setShowCards(false)
+            setDrawnCards([])
+            setTimeout(() => {
+              const shuffled = [...CARDS].sort(() => Math.random() - 0.5)
+              const picked = shuffled.slice(0, 3).map(c => ({ id: c.id, name: c.name, ticker: c.ticker, image_url: c.image }))
+              setDrawnCards(picked)
+              setShowCards(true)
+              setIsOpening(false)
+            }, 800)
+          }}
           disabled={isOpening}
           className="w-full rounded-md py-3 text-xs font-mono uppercase tracking-[0.25em] text-muted-foreground hover:text-foreground transition-all disabled:opacity-50"
           style={{ border: '1px solid hsl(var(--border))', background: 'hsl(var(--background) / 0.4)' }}
           onMouseEnter={e => (e.currentTarget.style.borderColor = 'hsl(var(--primary) / 0.4)')}
           onMouseLeave={e => (e.currentTarget.style.borderColor = 'hsl(var(--border))')}
         >
-          {isOpening ? 'Opening...' : 'Try a free demo pack'}
+          {isOpening ? 'Opening...' : 'Try a free demo pull'}
         </button>
         <div className="flex items-center justify-between font-mono text-xs tracking-[0.2em] text-muted-foreground uppercase pt-1">
           <span className="flex items-center gap-1.5">
