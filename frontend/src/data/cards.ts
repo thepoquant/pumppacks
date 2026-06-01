@@ -1,0 +1,133 @@
+export interface Card {
+  id: string
+  name: string
+  ticker: string
+  image: string
+  tagline: string
+  origin: string
+  onchain: string
+  mint_address: string
+}
+
+export const CARDS: Card[] = [
+  {
+    id: 'dog',
+    name: 'What the dog doing',
+    ticker: '$DOG',
+    image: 'https://pumppacks.app/__l5e/assets-v1/1d0c20b4-5511-41f4-961b-7b50f6eb24c4/dog.png',
+    tagline: 'The eternal question.',
+    origin: "Born on TikTok in 2022, the phrase 'what the dog doin' became a universal caption for any dog caught mid-suspicious-act. The cadence is wrong on purpose — the missing 'is' is the joke. It spawned thousands of stitches, filters, and remix videos before crossing over into general internet vernacular.",
+    mint_address: '',
+    onchain: "On-chain, the dog is always doin' something. Holders aren't sure what. That's the point.",
+  },
+  {
+    id: 'wojak',
+    name: 'Wojak',
+    ticker: '$WOJAK',
+    image: 'https://pumppacks.app/__l5e/assets-v1/f3f0aaab-e658-4ddf-ba48-96bc4f8a4a62/wojak.png',
+    tagline: 'Feels bad, man.',
+    origin: 'Wojak originated on a German imageboard in 2010 as a crude drawing of a bald, expressionless man. It spread globally as a vessel for existential sadness, financial loss, and internet despair. The face became a template — give it a hair color and you have a whole subculture.',
+    mint_address: '',
+    onchain: 'Wojak holders have seen charts that break the spirit. They buy anyway. Every dip is a portrait.',
+  },
+  {
+    id: 'lobstar',
+    name: 'Lobstar',
+    ticker: '$LOBSTAR',
+    image: 'https://pumppacks.app/__l5e/assets-v1/4b632b92-df0b-42ca-ab2c-1e8e4498c3fb/lobstar.png',
+    tagline: 'Big claws, big dreams.',
+    origin: 'Lobstar emerged from crypto Twitter as a mascot of tenacious optimism. The lobster claw gesture became a symbol for HODLers who refuse to let go regardless of market conditions. The star suffix implied aspiration.',
+    mint_address: '',
+    onchain: 'Lobstar holders grip tight. The claws never release. On-chain, this is a virtue.',
+  },
+  {
+    id: 'neet',
+    name: 'NEET',
+    ticker: '$NEET',
+    image: 'https://pumppacks.app/__l5e/assets-v1/553a4a6a-9f82-4578-998c-98a3596424b0/neet.png',
+    tagline: 'Not in Education, Employment, or Trading.',
+    origin: "NEET (Not in Education, Employment, or Training) became a term adopted by internet culture as a badge of ironic pride. The meme evolved into a persona — someone outside the system, operating on their own schedule, subsisting on ramen and charts.",
+    mint_address: '',
+    onchain: 'On-chain, NEETs are the most online participants. They never sleep. The market never sleeps. Symbiosis.',
+  },
+  {
+    id: 'bull',
+    name: 'Bull',
+    ticker: '$BULL',
+    image: 'https://pumppacks.app/__l5e/assets-v1/fd60dfd5-83d4-4bd7-b87a-86c750bfd6f0/bull.png',
+    tagline: 'Only one direction.',
+    origin: 'The bull is the oldest symbol in financial markets — Wall Street immortalized it in bronze. In crypto, the bull market is a period of irrational exuberance, moon talk, and price targets posted without irony. The bull runs.',
+    mint_address: '',
+    onchain: 'On-chain, Bull represents perpetual optimism. Price goes up. Charts go up. Everything goes up. Eventually.',
+  },
+  {
+    id: 'pnut',
+    name: 'Peanut the Squirrel',
+    ticker: '$PNUT',
+    image: 'https://pumppacks.app/__l5e/assets-v1/e9719f06-d9cc-4859-8805-0afb96335424/pnut.png',
+    tagline: 'A squirrel with staying power.',
+    origin: 'Peanut was a rescued squirrel who became a social media sensation. His story ended abruptly when authorities intervened, transforming him instantly into a symbol of government overreach and viral martyrdom. The internet mourned loudly.',
+    mint_address: '',
+    onchain: 'Peanut proved that narrative drives price more than fundamentals. The on-chain memorial is eternal.',
+  },
+  {
+    id: 'punch',
+    name: 'Punch',
+    ticker: '$PUNCH',
+    image: 'https://pumppacks.app/__l5e/assets-v1/191d741d-a500-4918-b541-be2a063cd233/punch.png',
+    tagline: 'Direct action.',
+    origin: "Punch emerged as a reaction meme to the discourse. When words fail, the punch connects. It bypassed debate entirely as a format — no caption needed, the image is the argument. It proliferated across political and gaming communities alike.",
+    mint_address: '',
+    onchain: "On-chain, Punch is the buy button. You don't negotiate with a chart. You act.",
+  },
+  {
+    id: 'troll',
+    name: 'Troll',
+    ticker: '$TROLL',
+    image: 'https://pumppacks.app/__l5e/assets-v1/4ae927ef-e444-478f-9ef8-a7c75c569a9d/troll.png',
+    tagline: 'U mad bro?',
+    origin: "The troll face is one of the internet's first original characters — a hand-drawn smirk that embodied the early web's spirit of chaos. It predated Reddit, survived cancellation attempts, and reemerged with every generation of internet user.",
+    mint_address: '',
+    onchain: "On-chain, Troll is unbothered. Price dumps? Troll face. Price pumps? Troll face. The sentiment is identical.",
+  },
+  {
+    id: 'unc',
+    name: 'Unc',
+    ticker: '$UNC',
+    image: 'https://pumppacks.app/__l5e/assets-v1/4807f751-4a4e-42e5-bd09-5f3ac38a8da1/unc.png',
+    tagline: 'The OG you trust.',
+    origin: "Unc is the internet's archetype for the older, wiser, slightly chaotic relative who has seen it all. The term carries warmth mixed with mild suspicion. He's been through the last cycle. He still buys the dip.",
+    mint_address: '',
+    onchain: "Unc watched the 2017 bull run. He watched the 2021 run. He's patient. On-chain, patience compounds.",
+  },
+  {
+    id: 'chillhouse',
+    name: 'Chillhouse',
+    ticker: '$CHILL',
+    image: 'https://pumppacks.app/__l5e/assets-v1/2b9871dd-536b-40f2-b4e1-063de8281c85/chillhouse.png',
+    tagline: 'Vibes above all.',
+    origin: "Chillhouse culture emerged as an antidote to the chaos of online life. Lo-fi beats, soft lighting, a cat in the window. The aesthetic promised calm in a state of permanent information overload. The vibe became a brand.",
+    mint_address: '',
+    onchain: "On-chain, Chillhouse doesn't panic sell. The chart is just background music. The vibe holds.",
+  },
+  {
+    id: 'triplet',
+    name: 'TripleT',
+    ticker: '$TTT',
+    image: 'https://pumppacks.app/__l5e/assets-v1/970de5e0-800e-4109-b5a6-a909bf7cf154/triplet.png',
+    tagline: 'Three of a kind.',
+    origin: 'TripleT spawned from the convergence of three separate meme lineages into a single entity. The specificity of its origin is deliberately lost. The mystery is part of the appeal — it references something just out of reach.',
+    mint_address: '',
+    onchain: 'Three wallets, one vision. On-chain, TripleT coordinates moves that look random but are not.',
+  },
+  {
+    id: 'fartcoin',
+    name: 'Fartcoin',
+    ticker: '$FART',
+    image: 'https://pumppacks.app/__l5e/assets-v1/50da00da-7b9c-4e16-88d5-c19430e6333e/fartcoin.png',
+    tagline: 'The smell of opportunity.',
+    origin: "Fartcoin is peak absurdist crypto culture. It did not aspire. It did not promise utility. It just existed, pungently. And the market responded. Sometimes the joke is the fundamentals.",
+    mint_address: '',
+    onchain: "On-chain, Fartcoin proves that branding is everything. The ticker is the product. Holders understand this.",
+  },
+]
