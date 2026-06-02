@@ -32,7 +32,7 @@ async def buy_pack(req: BuyPackRequest):
     selected = random.sample(CARDS_DATA, 3)
 
     for card in selected:
-        buy_token(card["mint_address"], SOL_PER_CARD)
+        await buy_token(card["mint_address"], SOL_PER_CARD)
         airdrop_tokens(req.buyer_wallet, card["mint_address"], 0.0)
 
     return BuyPackResponse(
