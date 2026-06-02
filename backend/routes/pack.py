@@ -7,6 +7,7 @@ from config import PACK_WALLET_ADDRESS
 from services.verify import verify_transaction
 from services.jupiter import buy_token
 from services.airdrop import airdrop_tokens
+from database import log_purchase, log_card_pull, log_airdrop
 
 router = APIRouter()
 
@@ -29,11 +30,21 @@ class BuyPackResponse(BaseModel):
 async def buy_pack(req: BuyPackRequest):
     await verify_transaction(req.tx_signature, SOL_PER_PACK, PACK_WALLET_ADDRESS)
 
+    purchase_id = await log_purchase(req.buyer_wallet, req.tx_signature, SOL_PER_PACK)
+
     selected = random.sample(CARDS_DATA, 3)
 
     for card in selected:
         await buy_token(card["mint_address"], SOL_PER_CARD)
+        await log_card_pull(
+            purchase_id,
+            card["id"],
+            card["name"],
+            card["ticker"],
+            card["mint_address"],
+        )
         await airdrop_tokens(req.buyer_wallet, card["mint_address"], 0.0)
+        await log_airdrop(purchase_id, req.buyer_wallet, card["mint_address"], 0.0, "")
 
     return BuyPackResponse(
         success=True,
