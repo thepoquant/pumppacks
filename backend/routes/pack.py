@@ -27,7 +27,7 @@ class BuyPackResponse(BaseModel):
 
 @router.post("/buy-pack", response_model=BuyPackResponse)
 async def buy_pack(req: BuyPackRequest):
-    verify_transaction(req.tx_signature, SOL_PER_PACK, PACK_WALLET_ADDRESS)
+    await verify_transaction(req.tx_signature, SOL_PER_PACK, PACK_WALLET_ADDRESS)
 
     selected = random.sample(CARDS_DATA, 3)
 
