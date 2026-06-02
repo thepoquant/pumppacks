@@ -11,7 +11,8 @@ import App from './App'
 import './index.css'
 import '@solana/wallet-adapter-react-ui/styles.css'
 
-const endpoint = clusterApiUrl('devnet')
+const network = (import.meta.env.VITE_SOLANA_NETWORK as 'devnet' | 'mainnet-beta') || 'devnet'
+const endpoint = clusterApiUrl(network)
 const wallets = [new PhantomWalletAdapter(), new SolflareWalletAdapter()]
 
 const queryClient = new QueryClient()
