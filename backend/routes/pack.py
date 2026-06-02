@@ -33,7 +33,7 @@ async def buy_pack(req: BuyPackRequest):
 
     for card in selected:
         await buy_token(card["mint_address"], SOL_PER_CARD)
-        airdrop_tokens(req.buyer_wallet, card["mint_address"], 0.0)
+        await airdrop_tokens(req.buyer_wallet, card["mint_address"], 0.0)
 
     return BuyPackResponse(
         success=True,
