@@ -1,4 +1,7 @@
+import { useCallback } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
+import { useWallet } from '@solana/wallet-adapter-react'
+import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 
 const NAV_LINKS = [
   { to: '/', label: 'Marketplace' },
@@ -7,8 +10,22 @@ const NAV_LINKS = [
   { to: '/payment', label: 'Payment/Payout' },
 ]
 
+function truncatePubkey(pk: string) {
+  return `${pk.slice(0, 4)}...${pk.slice(-4)}`
+}
+
 export function Header() {
   const location = useLocation()
+  const { publicKey, disconnect } = useWallet()
+  const { setVisible } = useWalletModal()
+
+  const handleConnect = useCallback(() => {
+    if (publicKey) {
+      disconnect()
+    } else {
+      setVisible(true)
+    }
+  }, [publicKey, disconnect, setVisible])
 
   return (
     <header className="border-b sticky top-0 z-50 backdrop-blur-sm" style={{ borderColor: 'hsl(var(--border) / 0.4)', background: 'hsl(var(--background) / 0.8)' }}>
@@ -51,7 +68,10 @@ export function Header() {
               <path d="M18.244 2H21l-6.49 7.41L22 22h-6.797l-4.78-6.262L4.8 22H2l6.94-7.93L2 2h6.91l4.32 5.71L18.244 2Zm-2.385 18h1.876L7.227 4H5.214l10.645 16Z" />
             </svg>
           </a>
-          <button className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors" style={{ border: '1px solid hsl(var(--primary) / 0.5)', background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
+          <button
+            onClick={handleConnect}
+            className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors"
+            style={{ border: '1px solid hsl(var(--primary) / 0.5)', background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'hsl(var(--primary) / 0.2)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'hsl(var(--primary) / 0.1)')}
           >
@@ -59,7 +79,7 @@ export function Header() {
               <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" />
               <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
             </svg>
-            Connect
+            {publicKey ? truncatePubkey(publicKey.toBase58()) : 'Connect'}
           </button>
         </div>
       </div>
