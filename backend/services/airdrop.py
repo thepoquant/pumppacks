@@ -1,22 +1,54 @@
-import json
-from solders.keypair import Keypair
-from solders.pubkey import Pubkey
+import asyncio
+import base64
+import struct
+
+import httpx
+from solders.hash import Hash
 from solders.instruction import AccountMeta, Instruction
+from solders.keypair import Keypair
+from solders.message import Message
+from solders.pubkey import Pubkey
 from solders.transaction import Transaction
-from solana.rpc.api import Client
-from solana.rpc.commitment import Confirmed
-from spl.token.constants import TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
-from spl.token.instructions import (
-    get_associated_token_address,
-    create_associated_token_account,
-    transfer_checked,
-    TransferCheckedParams,
-)
 
 from config import TEST_MODE, PACK_WALLET_PRIVATE_KEY, SOLANA_RPC_URL
 
-SYS_PROGRAM_ID = Pubkey.from_string("11111111111111111111111111111111")
-RENT = Pubkey.from_string("SysvarRent111111111111111111111111111111111")
+ASSOCIATED_TOKEN_PROGRAM_ID = Pubkey.from_string("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+SYSTEM_PROGRAM_ID = Pubkey.from_string("11111111111111111111111111111111")
+RENT_ID = Pubkey.from_string("SysvarRent111111111111111111111111111111111")
+
+
+def get_associated_token_address(owner: Pubkey, mint: Pubkey) -> Pubkey:
+    seeds = [bytes(owner), bytes(TOKEN_PROGRAM_ID), bytes(mint)]
+    ata, _ = Pubkey.find_program_address(seeds, ASSOCIATED_TOKEN_PROGRAM_ID)
+    return ata
+
+
+def create_ata_instruction(payer: Pubkey, owner: Pubkey, mint: Pubkey) -> Instruction:
+    ata = get_associated_token_address(owner, mint)
+    accounts = [
+        AccountMeta(payer, True, True),
+        AccountMeta(ata, False, True),
+        AccountMeta(owner, False, False),
+        AccountMeta(mint, False, False),
+        AccountMeta(SYSTEM_PROGRAM_ID, False, False),
+        AccountMeta(TOKEN_PROGRAM_ID, False, False),
+        AccountMeta(RENT_ID, False, False),
+    ]
+    return Instruction(ASSOCIATED_TOKEN_PROGRAM_ID, accounts, b"")
+
+
+def transfer_checked_instruction(
+    source: Pubkey, mint: Pubkey, dest: Pubkey, owner: Pubkey, amount: int, decimals: int,
+) -> Instruction:
+    accounts = [
+        AccountMeta(source, False, True),
+        AccountMeta(mint, False, False),
+        AccountMeta(dest, False, True),
+        AccountMeta(owner, True, False),
+    ]
+    data = struct.pack("<BQB", 12, amount, decimals)
+    return Instruction(TOKEN_PROGRAM_ID, accounts, data)
 
 
 async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: float) -> None:
@@ -26,8 +58,7 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: float
 
     print(f"Airdropping {amount} of {mint_address} to {recipient_wallet}...")
 
-    keypair_bytes = json.loads(PACK_WALLET_PRIVATE_KEY)
-    keypair = Keypair.from_bytes(bytes(keypair_bytes))
+    keypair = Keypair.from_base58_string(PACK_WALLET_PRIVATE_KEY)
     pack_pubkey = keypair.pubkey()
 
     mint_pubkey = Pubkey.from_string(mint_address)
@@ -36,49 +67,89 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: float
     sender_ata = get_associated_token_address(pack_pubkey, mint_pubkey)
     recipient_ata = get_associated_token_address(recipient_pubkey, mint_pubkey)
 
-    rpc_client = Client(SOLANA_RPC_URL)
+    rpc_url = SOLANA_RPC_URL.rstrip("/")
 
-    existing = rpc_client.get_account_info(recipient_ata)
-    instructions = []
-
-    if existing.value is None:
-        print(f"Recipient ATA {recipient_ata} does not exist. Creating...")
-        create_ix = create_associated_token_account(
-            payer=pack_pubkey,
-            owner=recipient_pubkey,
-            mint=mint_pubkey,
+    async with httpx.AsyncClient(timeout=30) as client:
+        ata_resp = await client.post(
+            f"{rpc_url}",
+            json={
+                "jsonrpc": "2.0", "id": 1, "method": "getAccountInfo",
+                "params": [str(recipient_ata), {"encoding": "base64"}],
+            },
         )
-        instructions.append(create_ix)
+        ata_data = ata_resp.json()
+        ata_exists = ata_data.get("result", {}).get("value") is not None
 
-    mint_info = rpc_client.get_account_info_json_parsed(mint_pubkey)
-    if mint_info.value is None:
-        raise Exception(f"Mint {mint_address} does not exist")
-    decimals = mint_info.value.data.parsed["info"]["decimals"]
+        instructions = []
 
-    transfer_amount = int(amount * (10 ** decimals))
+        if not ata_exists:
+            print(f"Recipient ATA {recipient_ata} does not exist. Creating...")
+            instructions.append(create_ata_instruction(pack_pubkey, recipient_pubkey, mint_pubkey))
 
-    transfer_ix = transfer_checked(
-        TransferCheckedParams(
-            program_id=TOKEN_PROGRAM_ID,
-            source=sender_ata,
-            mint=mint_pubkey,
-            dest=recipient_ata,
-            owner=pack_pubkey,
-            amount=transfer_amount,
-            decimals=decimals,
+        mint_resp = await client.post(
+            f"{rpc_url}",
+            json={
+                "jsonrpc": "2.0", "id": 1, "method": "getAccountInfo",
+                "params": [str(mint_pubkey), {"encoding": "base64"}],
+            },
         )
-    )
-    instructions.append(transfer_ix)
+        mint_result = mint_resp.json()
+        mint_value = mint_result.get("result", {}).get("value")
+        if mint_value is None:
+            raise Exception(f"Mint {mint_address} does not exist")
+        mint_data = base64.b64decode(mint_value["data"][0])
+        decimals = mint_data[44]
 
-    blockhash_resp = rpc_client.get_latest_blockhash()
-    recent_blockhash = blockhash_resp.value.blockhash
+        transfer_amount = int(amount * (10 ** decimals))
 
-    tx = Transaction.new_with_payer(instructions, payer=pack_pubkey)
-    tx.sign([keypair], recent_blockhash)
+        instructions.append(
+            transfer_checked_instruction(
+                sender_ata, mint_pubkey, recipient_ata, pack_pubkey, transfer_amount, decimals,
+            )
+        )
 
-    result = rpc_client.send_raw_transaction(bytes(tx))
-    tx_sig = result.value
+        blockhash_resp = await client.post(
+            f"{rpc_url}",
+            json={
+                "jsonrpc": "2.0", "id": 1, "method": "getLatestBlockhash",
+                "params": [],
+            },
+        )
+        blockhash_result = blockhash_resp.json()
+        recent_blockhash = Hash.from_string(blockhash_result["result"]["value"]["blockhash"])
 
-    rpc_client.confirm_transaction(tx_sig, commitment=Confirmed)
+        message = Message.new_with_blockhash(instructions, pack_pubkey, recent_blockhash)
+        tx = Transaction.new_unsigned(message)
+        tx.sign([keypair])
+        signed_b64 = base64.b64encode(bytes(tx)).decode()
 
-    print(f"Airdrop confirmed: {tx_sig}")
+        send_resp = await client.post(
+            f"{rpc_url}",
+            json={
+                "jsonrpc": "2.0", "id": 1, "method": "sendTransaction",
+                "params": [signed_b64, {"skipPreflight": False, "encoding": "base64"}],
+            },
+        )
+        send_result = send_resp.json()
+        if "error" in send_result:
+            raise Exception(f"RPC sendTransaction error: {send_result['error']}")
+        tx_sig = send_result["result"]
+
+        print(f"Airdrop transaction sent: {tx_sig}")
+
+        for attempt in range(15):
+            await asyncio.sleep(3)
+            confirm_resp = await client.post(
+                f"{rpc_url}",
+                json={
+                    "jsonrpc": "2.0", "id": 1, "method": "getTransaction",
+                    "params": [tx_sig, {"encoding": "base64"}],
+                },
+            )
+            if confirm_resp.status_code == 200:
+                confirm_result = confirm_resp.json()
+                if confirm_result.get("result") is not None:
+                    print(f"Airdrop confirmed: {tx_sig}")
+                    return
+
+        print(f"Airdrop sent but confirmation timeout: {tx_sig}")

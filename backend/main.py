@@ -1,10 +1,17 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from routes.pack import router as pack_router
 from routes.dashboard import router as dashboard_router
+from database import init_db
 
-app = FastAPI(title="Pumppacks API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    yield
+
+app = FastAPI(title="Pumppacks API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

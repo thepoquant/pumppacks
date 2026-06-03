@@ -1,13 +1,10 @@
+import asyncio
 import base64
-import json
 import httpx
 from solders.keypair import Keypair
 from solders.transaction import VersionedTransaction
-from solana.rpc.api import Client
-from solana.rpc.commitment import Confirmed
-from solana.rpc.types import TxOpts
 
-from config import TEST_MODE, PACK_WALLET_PRIVATE_KEY, PACK_WALLET_ADDRESS, SOLANA_RPC_URL
+from config import TEST_MODE, PACK_WALLET_PRIVATE_KEY, SOLANA_RPC_URL
 
 SOL_MINT = "So11111111111111111111111111111111111111112"
 JUPITER_QUOTE_URL = "https://public.jupiterapi.com/quote"
@@ -15,10 +12,10 @@ JUPITER_SWAP_URL = "https://public.jupiterapi.com/swap"
 LAMPORTS_PER_SOL = 1_000_000_000
 
 
-async def buy_token(mint_address: str, sol_amount: float) -> float:
+async def buy_token(mint_address: str, sol_amount: float) -> tuple[str, int]:
     if TEST_MODE:
         print("TEST MODE: skipping swap")
-        return 0.0
+        return ("", 0)
 
     print(f"Getting Jupiter quote for {mint_address}...")
     amount_lamports = int(sol_amount * LAMPORTS_PER_SOL)
@@ -36,14 +33,14 @@ async def buy_token(mint_address: str, sol_amount: float) -> float:
                 f"Jupiter quote failed: {quote_resp.status_code} - {quote_resp.text}"
             )
         quote = quote_resp.json()
-        out_amount = float(quote["outAmount"])
+        out_amount = int(quote["outAmount"])
 
         print(f"Quote received: {out_amount} tokens for {sol_amount} SOL")
 
         print("Executing swap...")
         swap_body = {
             "quoteResponse": quote,
-            "userPublicKey": PACK_WALLET_ADDRESS,
+            "userPublicKey": str(Keypair.from_base58_string(PACK_WALLET_PRIVATE_KEY).pubkey()),
             "wrapAndUnwrapSol": True,
             "useSharedAccounts": False,
         }
@@ -54,30 +51,55 @@ async def buy_token(mint_address: str, sol_amount: float) -> float:
             )
         swap_data = swap_resp.json()
 
-    swap_tx_b64 = swap_data["swapTransaction"]
-    last_valid_block_height = swap_data.get("lastValidBlockHeight")
+    unsigned_tx_b64 = swap_data["swapTransaction"]
 
-    keypair_bytes = json.loads(PACK_WALLET_PRIVATE_KEY)
-    keypair = Keypair.from_bytes(bytes(keypair_bytes))
+    keypair = Keypair.from_base58_string(PACK_WALLET_PRIVATE_KEY)
 
-    tx_bytes = base64.b64decode(swap_tx_b64)
+    tx_bytes = base64.b64decode(unsigned_tx_b64)
     tx = VersionedTransaction.from_bytes(tx_bytes)
+    signed_tx = VersionedTransaction(tx.message, [keypair])
+    signed_b64 = base64.b64encode(bytes(signed_tx)).decode()
 
-    sig = keypair.sign_message(bytes(tx.message.serialize()))
-    signed_tx = VersionedTransaction.populate(tx.message, [sig])
-
-    rpc_client = Client(SOLANA_RPC_URL)
-    tx_opts = TxOpts(skip_preflight=False)
-    result = rpc_client.send_raw_transaction(bytes(signed_tx), opts=tx_opts)
-    tx_sig = result.value
+    rpc_url = SOLANA_RPC_URL.rstrip("/")
+    async with httpx.AsyncClient(timeout=30) as client:
+        send_resp = await client.post(
+            f"{rpc_url}",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "sendTransaction",
+                "params": [
+                    signed_b64,
+                    {"skipPreflight": False, "encoding": "base64"},
+                ],
+            },
+        )
+        if send_resp.status_code != 200:
+            raise Exception(f"RPC sendTransaction failed: {send_resp.status_code} - {send_resp.text}")
+        send_result = send_resp.json()
+        if "error" in send_result:
+            raise Exception(f"RPC sendTransaction error: {send_result['error']}")
+        tx_sig = send_result["result"]
 
     print(f"Swap transaction sent: {tx_sig}")
 
-    rpc_client.confirm_transaction(
-        tx_sig,
-        commitment=Confirmed,
-        last_valid_block_height=last_valid_block_height,
-    )
+    for attempt in range(15):
+        await asyncio.sleep(3)
+        async with httpx.AsyncClient(timeout=30) as client:
+            confirm_resp = await client.post(
+                f"{rpc_url}",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "getTransaction",
+                    "params": [tx_sig, {"encoding": "base64"}],
+                },
+            )
+            if confirm_resp.status_code == 200:
+                confirm_result = confirm_resp.json()
+                if confirm_result.get("result") is not None:
+                    print(f"Swap confirmed: {tx_sig}")
+                    return (tx_sig, out_amount)
 
-    print(f"Swap confirmed: {tx_sig}")
-    return out_amount
+    print(f"Swap send but confirmation timeout: {tx_sig}")
+    return (tx_sig, out_amount)

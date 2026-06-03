@@ -35,7 +35,7 @@ async def buy_pack(req: BuyPackRequest):
     selected = random.sample(CARDS_DATA, 3)
 
     for card in selected:
-        await buy_token(card["mint_address"], SOL_PER_CARD)
+        swap_sig, out_amount = await buy_token(card["mint_address"], SOL_PER_CARD)
         await log_card_pull(
             purchase_id,
             card["id"],
@@ -43,8 +43,8 @@ async def buy_pack(req: BuyPackRequest):
             card["ticker"],
             card["mint_address"],
         )
-        await airdrop_tokens(req.buyer_wallet, card["mint_address"], 0.0)
-        await log_airdrop(purchase_id, req.buyer_wallet, card["mint_address"], 0.0, "")
+        await airdrop_tokens(req.buyer_wallet, card["mint_address"], out_amount)
+        await log_airdrop(purchase_id, req.buyer_wallet, card["mint_address"], out_amount, swap_sig)
 
     return BuyPackResponse(
         success=True,
