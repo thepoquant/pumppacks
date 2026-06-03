@@ -7,8 +7,8 @@ from solders.transaction import VersionedTransaction
 from config import TEST_MODE, PACK_WALLET_PRIVATE_KEY, SOLANA_RPC_URL
 
 SOL_MINT = "So11111111111111111111111111111111111111112"
-JUPITER_QUOTE_URL = "https://public.jupiterapi.com/quote"
-JUPITER_SWAP_URL = "https://public.jupiterapi.com/swap"
+JUPITER_QUOTE_URL = "https://api.jup.ag/swap/v1/quote"
+JUPITER_SWAP_URL = "https://api.jup.ag/swap/v1/swap"
 LAMPORTS_PER_SOL = 1_000_000_000
 
 
@@ -26,6 +26,7 @@ async def buy_token(mint_address: str, sol_amount: float) -> tuple[str, int]:
             "outputMint": mint_address,
             "amount": str(amount_lamports),
             "slippageBps": "300",
+            "restrictIntermediateTokens": "true",
         }
         quote_resp = await client.get(JUPITER_QUOTE_URL, params=quote_params)
         if quote_resp.status_code != 200:
