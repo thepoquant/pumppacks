@@ -21,8 +21,9 @@ const PACK_LAYERS = [
   { z: -1.5, y: 0.6, brightness: 0.85, blur: 0.15 },
 ]
 
-const TEST_RECIPIENT = new PublicKey('vEeSPZdVd4S8owp686hhfqwtwZr337zJGd5YqDEDUMM')
-const BUY_PACK_AMOUNT = 0.5
+const PACK_WALLET = import.meta.env.VITE_PACK_WALLET_ADDRESS || 'vEeSPZdVd4S8owp686hhfqwtwZr337zJGd5YqDEDUMM'
+const TEST_RECIPIENT = new PublicKey(PACK_WALLET)
+const BUY_PACK_AMOUNT = parseFloat(import.meta.env.VITE_SOL_PER_PACK || '0.5')
 
 function PackDemo() {
   const { publicKey, sendTransaction } = useWallet()
@@ -172,7 +173,7 @@ function PackDemo() {
       <div className="mt-6 space-y-3">
         <div className="flex items-center justify-between rounded-md px-4 py-3" style={{ background: 'hsl(var(--background) / 0.6)', border: '1px solid hsl(var(--border))' }}>
           <span className="font-mono text-xs tracking-[0.25em] text-muted-foreground uppercase">Price</span>
-          <span className="font-mono font-semibold text-lg" style={{ color: 'hsl(var(--primary))' }}>0.5 SOL</span>
+          <span className="font-mono font-semibold text-lg" style={{ color: 'hsl(var(--primary))' }}>{BUY_PACK_AMOUNT} SOL</span>
         </div>
         <button
           onClick={handleBuyPack}
@@ -184,7 +185,7 @@ function PackDemo() {
             boxShadow: '0 3px 0 hsl(145 50% 35%), 0 6px 14px hsl(var(--primary) / 0.3)',
           }}
         >
-          {isOpening ? 'BUYING...' : publicKey ? 'BUY PACK · 0.5 SOL' : 'CONNECT WALLET'}
+          {isOpening ? 'BUYING...' : publicKey ? `BUY PACK · ${BUY_PACK_AMOUNT} SOL` : 'CONNECT WALLET'}
         </button>
         <button
           onClick={() => {
@@ -213,7 +214,7 @@ function PackDemo() {
             <span className="w-2 h-2 rounded-full" style={{ background: 'hsl(var(--primary))' }} />
             On-chain
           </span>
-          <span>RTP 98%</span>
+          <span>Variable RTP</span>
           <span>3 Cards</span>
         </div>
       </div>
@@ -237,12 +238,12 @@ export function HomePage() {
               <span style={{ color: 'hsl(var(--primary))' }}>Win supply.</span>
             </h1>
             <p className="mt-6 text-base text-muted-foreground leading-relaxed max-w-md mx-auto lg:mx-0">
-              Pay <span className="text-foreground font-medium">0.5 SOL</span> per pack and pull{' '}
+              Pay <span className="text-foreground font-medium">{BUY_PACK_AMOUNT} SOL</span> per pack and pull{' '}
               <span className="text-foreground font-medium">3 random cards</span>. Each card grants real supply of the coin it represents.
             </p>
             <div className="mt-8 flex flex-wrap gap-6 justify-center lg:justify-start font-mono text-xs text-muted-foreground uppercase tracking-[0.2em]">
               <div>
-                <div className="text-base font-semibold" style={{ color: 'hsl(var(--primary))' }}>0.5 SOL</div>
+                <div className="text-base font-semibold" style={{ color: 'hsl(var(--primary))' }}>{BUY_PACK_AMOUNT} SOL</div>
                 <div className="mt-1">Per pack</div>
               </div>
               <div className="w-px bg-border" />
@@ -252,7 +253,7 @@ export function HomePage() {
               </div>
               <div className="w-px bg-border" />
               <div>
-                <div className="text-base font-semibold" style={{ color: 'hsl(var(--primary))' }}>98%</div>
+                <div className="text-base font-semibold" style={{ color: 'hsl(var(--primary))' }}>Variable</div>
                 <div className="mt-1">RTP</div>
               </div>
               <p className="mt-4 text-xs text-muted-foreground font-mono uppercase tracking-[0.15em] w-full">
