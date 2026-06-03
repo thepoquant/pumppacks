@@ -15,3 +15,6 @@ PUMPPACKS_TOKEN_MINT = os.getenv("PUMPPACKS_TOKEN_MINT", "")
 
 # SOL split per pack purchase
 SOL_PER_PACK = float(os.getenv("SOL_PER_PACK", "0.5"))
+
+CARDS_PER_PACK = 3
+SOL_PER_CARD_AIRDROP = (SOL_PER_PACK * AIRDROP_PCT) / CARDS_PER_PACK
