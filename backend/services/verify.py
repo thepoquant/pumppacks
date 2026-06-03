@@ -1,8 +1,4 @@
-from solders.pubkey import Pubkey
-from solders.signature import Signature
-from solana.rpc.api import Client
-from solana.rpc.commitment import Confirmed
-
+import httpx
 from config import TEST_MODE, SOLANA_RPC_URL
 
 LAMPORTS_PER_SOL = 1_000_000_000
@@ -18,48 +14,53 @@ async def verify_transaction(
     print(f"Verifying transaction {tx_signature}...")
 
     try:
-        client = Client(SOLANA_RPC_URL)
-        sig = Signature.from_string(tx_signature)
-
-        resp = client.get_transaction(sig, commitment=Confirmed)
-        if resp.value is None:
-            print("Transaction not found or not yet confirmed")
-            return False
-
-        meta = resp.value.transaction.meta
-
-        if meta.err is not None:
-            print(f"Transaction failed: {meta.err}")
-            return False
-
-        expected_lamports = int(expected_amount * LAMPORTS_PER_SOL)
-
-        tx_data = resp.value.transaction.transaction
-        account_keys = tx_data.message.account_keys
-
-        recipient_index = None
-        for i, key in enumerate(account_keys):
-            if str(key) == expected_recipient:
-                recipient_index = i
-                break
-
-        if recipient_index is None:
-            print("Recipient not found in transaction")
-            return False
-
-        pre = meta.pre_balances[recipient_index]
-        post = meta.post_balances[recipient_index]
-        balance_change = post - pre
-
-        if balance_change < expected_lamports - LAMPORT_TOLERANCE:
-            print(
-                f"Expected at least {expected_lamports} lamports, "
-                f"got {balance_change}"
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                SOLANA_RPC_URL,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "getTransaction",
+                    "params": [
+                        tx_signature,
+                        {"encoding": "json", "commitment": "confirmed", "maxSupportedTransactionVersion": 0},
+                    ],
+                },
             )
-            return False
+            result = resp.json().get("result")
 
-        print("Transaction verified successfully")
-        return True
+            if result is None:
+                print("Transaction not found or not yet confirmed")
+                return False
+
+            meta = result.get("meta", {})
+            if meta.get("err") is not None:
+                print(f"Transaction failed on-chain: {meta['err']}")
+                return False
+
+            account_keys = result["transaction"]["message"]["accountKeys"]
+            pre_balances = meta["preBalances"]
+            post_balances = meta["postBalances"]
+
+            recipient_index = None
+            for i, key in enumerate(account_keys):
+                if key == expected_recipient:
+                    recipient_index = i
+                    break
+
+            if recipient_index is None:
+                print("Recipient not found in transaction")
+                return False
+
+            balance_change = post_balances[recipient_index] - pre_balances[recipient_index]
+            expected_lamports = int(expected_amount * LAMPORTS_PER_SOL)
+
+            if balance_change < expected_lamports - LAMPORT_TOLERANCE:
+                print(f"Expected at least {expected_lamports} lamports, got {balance_change}")
+                return False
+
+            print("Transaction verified successfully")
+            return True
 
     except Exception as e:
         print(f"Transaction verification failed: {e}")
