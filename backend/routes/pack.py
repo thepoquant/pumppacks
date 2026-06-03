@@ -47,21 +47,19 @@ class BuyPackResponse(BaseModel):
 
 @router.post("/buy-pack", response_model=BuyPackResponse)
 async def buy_pack(req: BuyPackRequest):
-    # 1. Verify the user actually sent SOL to the pack wallet
     await verify_transaction(req.tx_signature, SOL_PER_PACK, PACK_WALLET_ADDRESS)
 
-    # 2. Log the purchase
-    purchase_id = await log_purchase(req.buyer_wallet, req.tx_signature, SOL_PER_PACK)
+    try:
+        purchase_id = await log_purchase(req.buyer_wallet, req.tx_signature, SOL_PER_PACK)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Transaction already processed")
 
-    # 3. Buy PumpPacks token with 70% of the SOL — drives the chart
     pumppacks_sol = SOL_PER_PACK * 0.70
     if PUMPPACKS_TOKEN_MINT:
         await buy_token(PUMPPACKS_TOKEN_MINT, pumppacks_sol)
 
-    # 4. Draw 3 cards using weighted rarity
     selected_cards = weighted_card_draw(CARDS_PER_PACK)
 
-    # 5. For each card: buy the token with airdrop budget, then airdrop to user
     for card in selected_cards:
         swap_sig, out_amount = await buy_token(card["mint_address"], SOL_PER_CARD_AIRDROP)
         await log_card_pull(
@@ -71,14 +69,15 @@ async def buy_pack(req: BuyPackRequest):
             card["ticker"],
             card["mint_address"],
         )
-        await airdrop_tokens(req.buyer_wallet, card["mint_address"], out_amount)
-        await log_airdrop(
-            purchase_id,
-            req.buyer_wallet,
-            card["mint_address"],
-            out_amount,
-            swap_sig,
-        )
+        if out_amount > 0:
+            await airdrop_tokens(req.buyer_wallet, card["mint_address"], out_amount)
+            await log_airdrop(
+                purchase_id,
+                req.buyer_wallet,
+                card["mint_address"],
+                out_amount,
+                swap_sig,
+            )
 
     return BuyPackResponse(
         success=True,
