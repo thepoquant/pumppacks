@@ -1,9 +1,16 @@
 import random
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from cards import CARDS_DATA
-from config import PACK_WALLET_ADDRESS
+from config import (
+    PACK_WALLET_ADDRESS,
+    PUMPPACKS_TOKEN_MINT,
+    SOL_PER_PACK,
+    SOL_PER_CARD_AIRDROP,
+    CARDS_PER_PACK,
+    RARITY_WEIGHTS,
+)
 from services.verify import verify_transaction
 from services.jupiter import buy_token
 from services.airdrop import airdrop_tokens
@@ -11,8 +18,20 @@ from database import log_purchase, log_card_pull, log_airdrop
 
 router = APIRouter()
 
-SOL_PER_PACK = 0.5
-SOL_PER_CARD = SOL_PER_PACK / 3
+
+def weighted_card_draw(n: int) -> list:
+    """Draw n unique cards using rarity weights."""
+    weights = [RARITY_WEIGHTS[card["rarity"]] for card in CARDS_DATA]
+    selected = []
+    pool = list(zip(CARDS_DATA, weights))
+
+    while len(selected) < n and pool:
+        cards, w = zip(*pool)
+        chosen = random.choices(cards, weights=w, k=1)[0]
+        selected.append(chosen)
+        pool = [(c, wt) for c, wt in pool if c["id"] != chosen["id"]]
+
+    return selected
 
 
 class BuyPackRequest(BaseModel):
@@ -28,14 +47,23 @@ class BuyPackResponse(BaseModel):
 
 @router.post("/buy-pack", response_model=BuyPackResponse)
 async def buy_pack(req: BuyPackRequest):
+    # 1. Verify the user actually sent SOL to the pack wallet
     await verify_transaction(req.tx_signature, SOL_PER_PACK, PACK_WALLET_ADDRESS)
 
+    # 2. Log the purchase
     purchase_id = await log_purchase(req.buyer_wallet, req.tx_signature, SOL_PER_PACK)
 
-    selected = random.sample(CARDS_DATA, 3)
+    # 3. Buy PumpPacks token with 70% of the SOL — drives the chart
+    pumppacks_sol = SOL_PER_PACK * 0.70
+    if PUMPPACKS_TOKEN_MINT:
+        await buy_token(PUMPPACKS_TOKEN_MINT, pumppacks_sol)
 
-    for card in selected:
-        swap_sig, out_amount = await buy_token(card["mint_address"], SOL_PER_CARD)
+    # 4. Draw 3 cards using weighted rarity
+    selected_cards = weighted_card_draw(CARDS_PER_PACK)
+
+    # 5. For each card: buy the token with airdrop budget, then airdrop to user
+    for card in selected_cards:
+        swap_sig, out_amount = await buy_token(card["mint_address"], SOL_PER_CARD_AIRDROP)
         await log_card_pull(
             purchase_id,
             card["id"],
@@ -44,10 +72,16 @@ async def buy_pack(req: BuyPackRequest):
             card["mint_address"],
         )
         await airdrop_tokens(req.buyer_wallet, card["mint_address"], out_amount)
-        await log_airdrop(purchase_id, req.buyer_wallet, card["mint_address"], out_amount, swap_sig)
+        await log_airdrop(
+            purchase_id,
+            req.buyer_wallet,
+            card["mint_address"],
+            out_amount,
+            swap_sig,
+        )
 
     return BuyPackResponse(
         success=True,
-        cards=selected,
+        cards=selected_cards,
         tx_signature=req.tx_signature,
     )
