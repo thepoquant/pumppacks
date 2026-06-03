@@ -4,4 +4,4 @@ asyncpg
 httpx
 python-dotenv
 solders
-solana-py
+solana
