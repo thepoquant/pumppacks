@@ -18,7 +18,7 @@ async def verify_transaction(
     try:
         async with AsyncClient(SOLANA_RPC_URL) as client:
             sig = Signature.from_string(tx_signature)
-            resp = await client.get_transaction(sig, commitment=CommitmentLevel.Confirmed)
+            resp = await client.get_transaction(sig)
             result = resp.value
 
             if result is None:

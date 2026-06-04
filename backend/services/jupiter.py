@@ -84,8 +84,8 @@ async def buy_token(mint_address: str, sol_amount: float) -> tuple[str, int]:
 
     print(f"Swap transaction sent: {tx_sig}")
 
-    for attempt in range(15):
-        await asyncio.sleep(3)
+    for attempt in range(30):
+        await asyncio.sleep(5)
         async with httpx.AsyncClient(timeout=30) as client:
             confirm_resp = await client.post(
                 f"{rpc_url}",
