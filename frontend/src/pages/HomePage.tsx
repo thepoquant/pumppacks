@@ -10,6 +10,8 @@ interface DrawnCard {
   name: string
   ticker: string
   image_url: string
+  rarity?: string
+  demo_value?: string | null
 }
 
 const PACK_IMAGE = 'https://pumppacks.app/__l5e/assets-v1/d0560df1-81ce-44ff-ae5f-342712a2c5e4/pump-pack.png'
@@ -150,16 +152,45 @@ function PackDemo() {
               className="card-reveal flex flex-col items-center gap-1"
               style={{ animationDelay: `${i * 120}ms` }}
             >
-              <img
-                src={card.image_url}
-                alt={card.name}
-                className="w-full object-contain rounded-lg"
-                style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))' }}
-              />
+              <div className="relative w-full">
+                {card.rarity === 'legendary' && (
+                  <div
+                    className="absolute inset-0 rounded-lg pointer-events-none"
+                    style={{
+                      boxShadow: '0 0 20px 4px hsl(45 100% 60% / 0.7)',
+                      border: '1px solid hsl(45 100% 60% / 0.8)',
+                      borderRadius: '8px',
+                    }}
+                  />
+                )}
+                <img
+                  src={card.image_url}
+                  alt={card.name}
+                  className="w-full object-contain rounded-lg"
+                  style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))' }}
+                />
+              </div>
               <span className="text-[10px] font-mono text-muted-foreground text-center leading-tight">{card.ticker}</span>
+              {card.rarity === 'legendary' && (
+                <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: 'hsl(45 100% 60%)' }}>
+                  LEGENDARY
+                </span>
+              )}
+              {card.demo_value && (
+                <span className="text-[10px] font-mono font-bold" style={{ color: 'hsl(var(--primary))' }}>
+                  ~{card.demo_value} SOL
+                </span>
+              )}
             </div>
           ))}
         </div>
+      )}
+
+      {/* Demo disclaimer */}
+      {showCards && drawnCards.some(c => c.demo_value) && (
+        <p className="text-[9px] font-mono text-center text-muted-foreground mt-2 uppercase tracking-wider">
+          Demo only — buy a real pack to win actual tokens
+        </p>
       )}
 
       {/* Error */}
@@ -195,7 +226,29 @@ function PackDemo() {
             setDrawnCards([])
             setTimeout(() => {
               const shuffled = [...CARDS].sort(() => Math.random() - 0.5)
-              const picked = shuffled.slice(0, 3).map(c => ({ id: c.id, name: c.name, ticker: c.ticker, image_url: c.image }))
+              const isLuckyDemo = Math.random() < 0.33
+              let picked
+              if (isLuckyDemo) {
+                const legendary = CARDS.filter(c => c.rarity === 'legendary')
+                const others = shuffled.filter(c => c.rarity !== 'legendary').slice(0, 2)
+                picked = [...legendary, ...others].slice(0, 3).map(c => ({
+                  id: c.id,
+                  name: c.name,
+                  ticker: c.ticker,
+                  image_url: c.image,
+                  rarity: c.rarity,
+                  demo_value: isLuckyDemo ? (Math.random() * 0.7 + 0.6).toFixed(2) : null,
+                }))
+              } else {
+                picked = shuffled.slice(0, 3).map(c => ({
+                  id: c.id,
+                  name: c.name,
+                  ticker: c.ticker,
+                  image_url: c.image,
+                  rarity: c.rarity,
+                  demo_value: null,
+                }))
+              }
               setDrawnCards(picked)
               setShowCards(true)
               setIsOpening(false)
