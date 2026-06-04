@@ -112,19 +112,25 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) 
         ata_exists = ata_data.get("result", {}).get("value") is not None
 
         # Verify sender ATA exists and has balance
-        sender_ata_resp = await client.post(
-            rpc_url,
-            headers={"Content-Type": "application/json"},
-            json={
-                "jsonrpc": "2.0", "id": 1, "method": "getTokenAccountBalance",
-                "params": [str(sender_ata)],
-            },
-        )
-        sender_balance = sender_ata_resp.json()
-        sender_amount = int(sender_balance.get("result", {}).get("value", {}).get("amount", "0"))
-        print(f"Sender ATA {sender_ata} balance: {sender_amount}")
+        sender_amount = 0
+        for balance_attempt in range(10):
+            sender_ata_resp = await client.post(
+                rpc_url,
+                headers={"Content-Type": "application/json"},
+                json={
+                    "jsonrpc": "2.0", "id": 1, "method": "getTokenAccountBalance",
+                    "params": [str(sender_ata)],
+                },
+            )
+            sender_balance = sender_ata_resp.json()
+            sender_amount = int(sender_balance.get("result", {}).get("value", {}).get("amount", "0"))
+            print(f"Sender ATA {sender_ata} balance attempt {balance_attempt + 1}: {sender_amount}")
+            if sender_amount > 0:
+                break
+            await asyncio.sleep(3)
+
         if sender_amount == 0:
-            raise Exception(f"Sender ATA has no tokens for mint {mint_address}")
+            raise Exception(f"Sender ATA has no tokens after 30s for mint {mint_address}")
 
         # Use actual balance if out_amount exceeds it
         transfer_amount = min(int(amount), sender_amount)
