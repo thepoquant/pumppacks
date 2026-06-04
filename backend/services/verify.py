@@ -1,4 +1,6 @@
-import httpx
+from solana.rpc.async_api import AsyncClient
+from solders.signature import Signature
+from solders.commitment import Confirmed
 from config import TEST_MODE, SOLANA_RPC_URL
 
 LAMPORTS_PER_SOL = 1_000_000_000
@@ -14,37 +16,27 @@ async def verify_transaction(
     print(f"Verifying transaction {tx_signature}...")
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                SOLANA_RPC_URL,
-                json={
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "method": "getTransaction",
-                    "params": [
-                        tx_signature,
-                        {"encoding": "json", "commitment": "confirmed", "maxSupportedTransactionVersion": 0},
-                    ],
-                },
-            )
-            result = resp.json().get("result")
+        async with AsyncClient(SOLANA_RPC_URL) as client:
+            sig = Signature.from_string(tx_signature)
+            resp = await client.get_transaction(sig, commitment=Confirmed)
+            result = resp.value
 
             if result is None:
                 print("Transaction not found or not yet confirmed")
                 return False
 
-            meta = result.get("meta", {})
-            if meta.get("err") is not None:
-                print(f"Transaction failed on-chain: {meta['err']}")
+            meta = result.meta
+            if meta is None or meta.err is not None:
+                print(f"Transaction failed on-chain: {meta.err if meta else 'no meta'}")
                 return False
 
-            account_keys = result["transaction"]["message"]["accountKeys"]
-            pre_balances = meta["preBalances"]
-            post_balances = meta["postBalances"]
+            account_keys = result.transaction.message.account_keys
+            pre_balances = meta.pre_balances
+            post_balances = meta.post_balances
 
             recipient_index = None
             for i, key in enumerate(account_keys):
-                if key == expected_recipient:
+                if str(key) == expected_recipient:
                     recipient_index = i
                     break
 
