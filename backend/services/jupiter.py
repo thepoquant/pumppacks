@@ -45,6 +45,7 @@ async def buy_token(mint_address: str, sol_amount: float) -> tuple[str, int]:
             "quoteResponse": quote,
             "userPublicKey": str(keypair.pubkey()),
             "wrapAndUnwrapSol": True,
+            "useSharedAccounts": False,
             "dynamicComputeUnitLimit": True,
             "prioritizationFeeLamports": "auto",
             "excludeDexes": "Whirlpool,DefiTuna",
