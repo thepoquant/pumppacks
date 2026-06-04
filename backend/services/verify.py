@@ -1,6 +1,6 @@
 from solana.rpc.async_api import AsyncClient
 from solders.signature import Signature
-from solders.commitment import Confirmed
+from solders.commitment_config import CommitmentLevel
 from config import TEST_MODE, SOLANA_RPC_URL
 
 LAMPORTS_PER_SOL = 1_000_000_000
@@ -18,7 +18,7 @@ async def verify_transaction(
     try:
         async with AsyncClient(SOLANA_RPC_URL) as client:
             sig = Signature.from_string(tx_signature)
-            resp = await client.get_transaction(sig, commitment=Confirmed)
+            resp = await client.get_transaction(sig, commitment=CommitmentLevel.Confirmed)
             result = resp.value
 
             if result is None:
