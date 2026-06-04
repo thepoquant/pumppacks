@@ -73,6 +73,7 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) 
     async with httpx.AsyncClient(timeout=30) as client:
         ata_resp = await client.post(
             f"{rpc_url}",
+            headers={"Content-Type": "application/json"},
             json={
                 "jsonrpc": "2.0", "id": 1, "method": "getAccountInfo",
                 "params": [str(recipient_ata), {"encoding": "base64"}],
@@ -89,6 +90,7 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) 
 
         mint_resp = await client.post(
             f"{rpc_url}",
+            headers={"Content-Type": "application/json"},
             json={
                 "jsonrpc": "2.0", "id": 1, "method": "getAccountInfo",
                 "params": [str(mint_pubkey), {"encoding": "base64"}],
@@ -111,6 +113,7 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) 
 
         blockhash_resp = await client.post(
             f"{rpc_url}",
+            headers={"Content-Type": "application/json"},
             json={
                 "jsonrpc": "2.0", "id": 1, "method": "getLatestBlockhash",
                 "params": [],
@@ -121,11 +124,12 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) 
 
         message = Message.new_with_blockhash(instructions, pack_pubkey, recent_blockhash)
         tx = Transaction.new_unsigned(message)
-        tx.sign([keypair])
+        tx.sign([keypair], recent_blockhash)
         signed_b64 = base64.b64encode(bytes(tx)).decode()
 
         send_resp = await client.post(
             f"{rpc_url}",
+            headers={"Content-Type": "application/json"},
             json={
                 "jsonrpc": "2.0", "id": 1, "method": "sendTransaction",
                 "params": [signed_b64, {"skipPreflight": False, "encoding": "base64"}],
@@ -138,33 +142,32 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) 
 
         print(f"Airdrop transaction sent: {tx_sig}")
 
-        async with httpx.AsyncClient(timeout=30) as airdrop_client:
-            for attempt in range(30):
-                try:
-                    status_resp = await airdrop_client.post(
-                        rpc_url,
-                        headers={"Content-Type": "application/json"},
-                        json={
-                            "jsonrpc": "2.0",
-                            "id": 1,
-                            "method": "getSignatureStatuses",
-                            "params": [[tx_sig], {"searchTransactionHistory": True}],
-                        },
-                        timeout=15,
-                    )
-                    status_data = status_resp.json()
-                    statuses = status_data.get("result", {}).get("value", [])
-                    if statuses and statuses[0] is not None:
-                        status = statuses[0]
-                        if status.get("err") is not None:
-                            raise Exception(f"Airdrop failed on-chain: {status['err']}")
-                        confirmation = status.get("confirmationStatus", "")
-                        if confirmation in ("confirmed", "finalized"):
-                            print(f"Airdrop confirmed: {tx_sig}")
-                            return
-                    await asyncio.sleep(3)
-                except Exception as exc:
-                    print(f"Airdrop confirmation attempt {attempt + 1} failed: {exc}")
-                    await asyncio.sleep(3)
+        for attempt in range(30):
+            try:
+                status_resp = await client.post(
+                    rpc_url,
+                    headers={"Content-Type": "application/json"},
+                    json={
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "getSignatureStatuses",
+                        "params": [[tx_sig], {"searchTransactionHistory": True}],
+                    },
+                    timeout=15,
+                )
+                status_data = status_resp.json()
+                statuses = status_data.get("result", {}).get("value", [])
+                if statuses and statuses[0] is not None:
+                    status = statuses[0]
+                    if status.get("err") is not None:
+                        raise Exception(f"Airdrop failed on-chain: {status['err']}")
+                    confirmation = status.get("confirmationStatus", "")
+                    if confirmation in ("confirmed", "finalized"):
+                        print(f"Airdrop confirmed: {tx_sig}")
+                        return
+                await asyncio.sleep(3)
+            except Exception as exc:
+                print(f"Airdrop confirmation attempt {attempt + 1} failed: {exc}")
+                await asyncio.sleep(3)
 
-        print(f"Airdrop confirmation timeout after 90s: {tx_sig}")
+        print(f"Airdrop sent but confirmation timeout: {tx_sig}")
