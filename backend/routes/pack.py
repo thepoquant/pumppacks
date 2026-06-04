@@ -73,7 +73,7 @@ async def buy_pack(req: BuyPackRequest):
             card["mint_address"],
         )
         if out_amount > 0:
-            await airdrop_tokens(req.buyer_wallet, card["mint_address"], out_amount)
+            await airdrop_tokens(req.buyer_wallet, card["mint_address"], int(out_amount))
             await log_airdrop(
                 purchase_id,
                 req.buyer_wallet,

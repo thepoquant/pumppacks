@@ -51,7 +51,8 @@ def transfer_checked_instruction(
     return Instruction(TOKEN_PROGRAM_ID, accounts, data)
 
 
-async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: float) -> None:
+async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) -> None:
+    # amount is in base units (already scaled by token decimals)
     if TEST_MODE:
         print("TEST MODE: skipping airdrop")
         return
@@ -100,7 +101,7 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: float
         mint_data = base64.b64decode(mint_value["data"][0])
         decimals = mint_data[44]
 
-        transfer_amount = int(amount * (10 ** decimals))
+        transfer_amount = int(amount)
 
         instructions.append(
             transfer_checked_instruction(
