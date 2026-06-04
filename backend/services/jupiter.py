@@ -25,7 +25,7 @@ async def buy_token(mint_address: str, sol_amount: float) -> tuple[str, int]:
             "inputMint": SOL_MINT,
             "outputMint": mint_address,
             "amount": str(amount_lamports),
-            "slippageBps": "300",
+            "slippageBps": "1000",
             "restrictIntermediateTokens": "true",
         }
         quote_resp = await client.get(JUPITER_QUOTE_URL, params=quote_params)
@@ -43,7 +43,7 @@ async def buy_token(mint_address: str, sol_amount: float) -> tuple[str, int]:
             "quoteResponse": quote,
             "userPublicKey": str(Keypair.from_base58_string(PACK_WALLET_PRIVATE_KEY).pubkey()),
             "wrapAndUnwrapSol": True,
-            "useSharedAccounts": False,
+            "useSharedAccounts": True,
         }
         swap_resp = await client.post(JUPITER_SWAP_URL, json=swap_body)
         if swap_resp.status_code != 200:

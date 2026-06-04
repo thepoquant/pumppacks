@@ -138,8 +138,8 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) 
 
         print(f"Airdrop transaction sent: {tx_sig}")
 
-        for attempt in range(15):
-            await asyncio.sleep(3)
+        for attempt in range(30):
+            await asyncio.sleep(5)
             confirm_resp = await client.post(
                 f"{rpc_url}",
                 json={
