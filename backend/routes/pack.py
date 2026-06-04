@@ -14,7 +14,7 @@ from config import (
 from services.verify import verify_transaction
 from services.jupiter import buy_token
 from services.airdrop import airdrop_tokens
-from database import log_purchase, log_card_pull, log_airdrop
+from database import log_purchase, log_card_pull, log_airdrop, check_signature_used
 
 router = APIRouter()
 
@@ -48,6 +48,9 @@ class BuyPackResponse(BaseModel):
 @router.post("/buy-pack", response_model=BuyPackResponse)
 async def buy_pack(req: BuyPackRequest):
     await verify_transaction(req.tx_signature, SOL_PER_PACK, PACK_WALLET_ADDRESS)
+
+    if await check_signature_used(req.tx_signature):
+        raise HTTPException(status_code=400, detail="Transaction already used")
 
     try:
         purchase_id = await log_purchase(req.buyer_wallet, req.tx_signature, SOL_PER_PACK)

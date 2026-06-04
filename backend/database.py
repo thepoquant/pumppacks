@@ -60,6 +60,17 @@ async def log_purchase(buyer_wallet: str, tx_signature: str, sol_amount: float) 
         return row["id"]
 
 
+async def check_signature_used(tx_signature: str) -> bool:
+    if not pool:
+        return False
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id FROM pack_purchases WHERE tx_signature = $1",
+            tx_signature,
+        )
+        return row is not None
+
+
 async def log_card_pull(purchase_id: int, card_id: str, card_name: str, ticker: str, mint_address: str):
     if not pool:
         return

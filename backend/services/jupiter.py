@@ -102,5 +102,4 @@ async def buy_token(mint_address: str, sol_amount: float) -> tuple[str, int]:
                     print(f"Swap confirmed: {tx_sig}")
                     return (tx_sig, out_amount)
 
-    print(f"Swap send but confirmation timeout: {tx_sig}")
-    return (tx_sig, out_amount)
+    raise Exception(f"Swap confirmation timeout after 45s: {tx_sig}")
