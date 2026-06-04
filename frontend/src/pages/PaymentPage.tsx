@@ -5,7 +5,7 @@ const PAYMENT_ITEMS = [
   },
   {
     title: 'Payout',
-    desc: 'You get the SOL value you won — delivered as supply of the coin on the card you pulled, airdropped to your wallet 10 seconds after the spin ends.',
+    desc: 'You get the SOL value you won — delivered as supply of the coin on the card you pulled, airdropped to your wallet within a few minutes.',
   },
   {
     title: 'Same wallet flywheel',
