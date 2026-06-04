@@ -83,13 +83,15 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) 
         if mint_value is None:
             raise Exception(f"Mint {mint_address} does not exist")
 
-        mint_owner = mint_value.get("owner", "")
-        if mint_owner == str(TOKEN_2022_PROGRAM_ID):
-            token_program_id = TOKEN_2022_PROGRAM_ID
-            print(f"Using Token-2022 program for {mint_address}")
-        else:
-            token_program_id = TOKEN_PROGRAM_ID
-            print(f"Using Token program for {mint_address}")
+    TOKEN_2022_STR = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+    mint_owner = mint_value.get("owner", "")
+    print(f"Mint owner program: {mint_owner}")
+    if TOKEN_2022_STR in mint_owner:
+        token_program_id = TOKEN_2022_PROGRAM_ID
+        print(f"Using Token-2022 program for {mint_address}")
+    else:
+        token_program_id = TOKEN_PROGRAM_ID
+        print(f"Using Token program for {mint_address}")
 
         mint_data = base64.b64decode(mint_value["data"][0])
         decimals = mint_data[44]
