@@ -14,7 +14,7 @@ from config import TEST_MODE, PACK_WALLET_PRIVATE_KEY, SOLANA_RPC_URL
 
 ASSOCIATED_TOKEN_PROGRAM_ID = Pubkey.from_string("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
 TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
-TOKEN_2022_PROGRAM_ID = Pubkey.from_string("TokenzQdBNbequW55hyfcQ2espMHcq1t2y7dkHcgq")
+TOKEN_2022_PROGRAM_ID = Pubkey.from_string("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
 SYSTEM_PROGRAM_ID = Pubkey.from_string("11111111111111111111111111111111")
 RENT_ID = Pubkey.from_string("SysvarRent111111111111111111111111111111111")
 
