@@ -35,7 +35,7 @@ def create_ata_instruction(payer: Pubkey, owner: Pubkey, mint: Pubkey) -> Instru
         AccountMeta(TOKEN_PROGRAM_ID, False, False),
         AccountMeta(RENT_ID, False, False),
     ]
-    return Instruction(ASSOCIATED_TOKEN_PROGRAM_ID, accounts, b"")
+    return Instruction(ASSOCIATED_TOKEN_PROGRAM_ID, b"", accounts)
 
 
 def transfer_checked_instruction(
@@ -48,7 +48,7 @@ def transfer_checked_instruction(
         AccountMeta(owner, True, False),
     ]
     data = struct.pack("<BQB", 12, amount, decimals)
-    return Instruction(TOKEN_PROGRAM_ID, accounts, data)
+    return Instruction(TOKEN_PROGRAM_ID, data, accounts)
 
 
 async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) -> None:
