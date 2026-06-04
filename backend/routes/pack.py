@@ -1,5 +1,7 @@
 import random
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from pydantic import BaseModel
 
 from cards import CARDS_DATA
@@ -17,6 +19,7 @@ from services.airdrop import airdrop_tokens
 from database import log_purchase, log_card_pull, log_airdrop, check_signature_used
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 
 def weighted_card_draw(n: int) -> list:
@@ -46,7 +49,8 @@ class BuyPackResponse(BaseModel):
 
 
 @router.post("/buy-pack", response_model=BuyPackResponse)
-async def buy_pack(req: BuyPackRequest):
+@limiter.limit("10/minute")
+async def buy_pack(request: Request, req: BuyPackRequest):
     await verify_transaction(req.tx_signature, SOL_PER_PACK, PACK_WALLET_ADDRESS)
 
     if await check_signature_used(req.tx_signature):
