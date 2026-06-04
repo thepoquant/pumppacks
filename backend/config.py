@@ -13,9 +13,13 @@ TEST_MODE = os.getenv("TEST_MODE", "true").lower() == "true"
 PUMPPACKS_TOKEN_MINT = os.getenv("PUMPPACKS_TOKEN_MINT", "")
 
 SOL_PER_PACK = float(os.getenv("SOL_PER_PACK", "0.5"))
-AIRDROP_PCT = float(os.getenv("AIRDROP_PCT", "0.30"))
 CARDS_PER_PACK = 3
-SOL_PER_CARD_AIRDROP = (SOL_PER_PACK * AIRDROP_PCT) / CARDS_PER_PACK
+RARITY_SOL_PAYOUT = {
+    "common": 0.03,
+    "rare": 0.08,
+    "epic": 0.20,
+    "legendary": 0.60,
+}
 
 RARITY_WEIGHTS = {
     "common": 60,

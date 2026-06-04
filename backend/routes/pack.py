@@ -9,9 +9,9 @@ from config import (
     PACK_WALLET_ADDRESS,
     PUMPPACKS_TOKEN_MINT,
     SOL_PER_PACK,
-    SOL_PER_CARD_AIRDROP,
     CARDS_PER_PACK,
     RARITY_WEIGHTS,
+    RARITY_SOL_PAYOUT,
 )
 from services.verify import verify_transaction
 from services.jupiter import buy_token
@@ -37,13 +37,16 @@ def weighted_card_draw(n: int) -> list:
 async def process_pack_background(purchase_id: int, buyer_wallet: str, selected_cards: list):
     if PUMPPACKS_TOKEN_MINT:
         try:
-            await buy_token(PUMPPACKS_TOKEN_MINT, SOL_PER_PACK * 0.70)
+            total_card_sol = sum(RARITY_SOL_PAYOUT.get(card["rarity"], 0.03) for card in selected_cards)
+            flywheel_sol = max(SOL_PER_PACK - total_card_sol - 0.01, 0.05)
+            await buy_token(PUMPPACKS_TOKEN_MINT, flywheel_sol)
         except Exception as e:
             print(f"Flywheel buy failed: {e}")
 
     for card in selected_cards:
         try:
-            swap_sig, out_amount = await buy_token(card["mint_address"], SOL_PER_CARD_AIRDROP)
+            card_sol = RARITY_SOL_PAYOUT.get(card["rarity"], 0.03)
+            swap_sig, out_amount = await buy_token(card["mint_address"], card_sol)
             await log_card_pull(purchase_id, card["id"], card["name"], card["ticker"], card["mint_address"])
             if out_amount > 0:
                 await airdrop_tokens(buyer_wallet, card["mint_address"], int(out_amount))
