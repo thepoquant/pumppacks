@@ -25,6 +25,7 @@ app.add_middleware(
     allow_origins=[
         "https://pumppacks.app",
         "http://localhost:3000",
+        "https://attentive-thirteen-daintily.ngrok-free.dev",
     ],
     allow_credentials=True,
     allow_methods=["*"],
