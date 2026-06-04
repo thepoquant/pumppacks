@@ -14,32 +14,33 @@ from config import TEST_MODE, PACK_WALLET_PRIVATE_KEY, SOLANA_RPC_URL
 
 ASSOCIATED_TOKEN_PROGRAM_ID = Pubkey.from_string("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
 TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+TOKEN_2022_PROGRAM_ID = Pubkey.from_string("TokenzQdBNbequW55hyfcQ2espMHcq1t2y7dkHcgq")
 SYSTEM_PROGRAM_ID = Pubkey.from_string("11111111111111111111111111111111")
 RENT_ID = Pubkey.from_string("SysvarRent111111111111111111111111111111111")
 
 
-def get_associated_token_address(owner: Pubkey, mint: Pubkey) -> Pubkey:
-    seeds = [bytes(owner), bytes(TOKEN_PROGRAM_ID), bytes(mint)]
+def get_associated_token_address(owner: Pubkey, mint: Pubkey, token_program_id: Pubkey) -> Pubkey:
+    seeds = [bytes(owner), bytes(token_program_id), bytes(mint)]
     ata, _ = Pubkey.find_program_address(seeds, ASSOCIATED_TOKEN_PROGRAM_ID)
     return ata
 
 
-def create_ata_instruction(payer: Pubkey, owner: Pubkey, mint: Pubkey) -> Instruction:
-    ata = get_associated_token_address(owner, mint)
+def create_ata_instruction(payer: Pubkey, owner: Pubkey, mint: Pubkey, token_program_id: Pubkey) -> Instruction:
+    ata = get_associated_token_address(owner, mint, token_program_id)
     accounts = [
         AccountMeta(payer, True, True),
         AccountMeta(ata, False, True),
         AccountMeta(owner, False, False),
         AccountMeta(mint, False, False),
         AccountMeta(SYSTEM_PROGRAM_ID, False, False),
-        AccountMeta(TOKEN_PROGRAM_ID, False, False),
+        AccountMeta(token_program_id, False, False),
         AccountMeta(RENT_ID, False, False),
     ]
     return Instruction(ASSOCIATED_TOKEN_PROGRAM_ID, b"", accounts)
 
 
 def transfer_checked_instruction(
-    source: Pubkey, mint: Pubkey, dest: Pubkey, owner: Pubkey, amount: int, decimals: int,
+    source: Pubkey, mint: Pubkey, dest: Pubkey, owner: Pubkey, amount: int, decimals: int, token_program_id: Pubkey,
 ) -> Instruction:
     accounts = [
         AccountMeta(source, False, True),
@@ -48,7 +49,7 @@ def transfer_checked_instruction(
         AccountMeta(owner, True, False),
     ]
     data = struct.pack("<BQB", 12, amount, decimals)
-    return Instruction(TOKEN_PROGRAM_ID, data, accounts)
+    return Instruction(token_program_id, data, accounts)
 
 
 async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) -> None:
@@ -65,14 +66,40 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) 
     mint_pubkey = Pubkey.from_string(mint_address)
     recipient_pubkey = Pubkey.from_string(recipient_wallet)
 
-    sender_ata = get_associated_token_address(pack_pubkey, mint_pubkey)
-    recipient_ata = get_associated_token_address(recipient_pubkey, mint_pubkey)
-
     rpc_url = SOLANA_RPC_URL.rstrip("/")
 
     async with httpx.AsyncClient(timeout=30) as client:
+        # Detect token program by checking mint account owner
+        mint_resp = await client.post(
+            rpc_url,
+            headers={"Content-Type": "application/json"},
+            json={
+                "jsonrpc": "2.0", "id": 1, "method": "getAccountInfo",
+                "params": [str(mint_pubkey), {"encoding": "base64"}],
+            },
+        )
+        mint_result = mint_resp.json()
+        mint_value = mint_result.get("result", {}).get("value")
+        if mint_value is None:
+            raise Exception(f"Mint {mint_address} does not exist")
+
+        mint_owner = mint_value.get("owner", "")
+        if mint_owner == str(TOKEN_2022_PROGRAM_ID):
+            token_program_id = TOKEN_2022_PROGRAM_ID
+            print(f"Using Token-2022 program for {mint_address}")
+        else:
+            token_program_id = TOKEN_PROGRAM_ID
+            print(f"Using Token program for {mint_address}")
+
+        mint_data = base64.b64decode(mint_value["data"][0])
+        decimals = mint_data[44]
+
+        sender_ata = get_associated_token_address(pack_pubkey, mint_pubkey, token_program_id)
+        recipient_ata = get_associated_token_address(recipient_pubkey, mint_pubkey, token_program_id)
+
+        # Check if recipient ATA exists
         ata_resp = await client.post(
-            f"{rpc_url}",
+            rpc_url,
             headers={"Content-Type": "application/json"},
             json={
                 "jsonrpc": "2.0", "id": 1, "method": "getAccountInfo",
@@ -86,33 +113,18 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) 
 
         if not ata_exists:
             print(f"Recipient ATA {recipient_ata} does not exist. Creating...")
-            instructions.append(create_ata_instruction(pack_pubkey, recipient_pubkey, mint_pubkey))
-
-        mint_resp = await client.post(
-            f"{rpc_url}",
-            headers={"Content-Type": "application/json"},
-            json={
-                "jsonrpc": "2.0", "id": 1, "method": "getAccountInfo",
-                "params": [str(mint_pubkey), {"encoding": "base64"}],
-            },
-        )
-        mint_result = mint_resp.json()
-        mint_value = mint_result.get("result", {}).get("value")
-        if mint_value is None:
-            raise Exception(f"Mint {mint_address} does not exist")
-        mint_data = base64.b64decode(mint_value["data"][0])
-        decimals = mint_data[44]
+            instructions.append(create_ata_instruction(pack_pubkey, recipient_pubkey, mint_pubkey, token_program_id))
 
         transfer_amount = int(amount)
-
         instructions.append(
             transfer_checked_instruction(
-                sender_ata, mint_pubkey, recipient_ata, pack_pubkey, transfer_amount, decimals,
+                sender_ata, mint_pubkey, recipient_ata, pack_pubkey, transfer_amount, decimals, token_program_id,
             )
         )
 
+        # Get latest blockhash
         blockhash_resp = await client.post(
-            f"{rpc_url}",
+            rpc_url,
             headers={"Content-Type": "application/json"},
             json={
                 "jsonrpc": "2.0", "id": 1, "method": "getLatestBlockhash",
@@ -128,7 +140,7 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) 
         signed_b64 = base64.b64encode(bytes(tx)).decode()
 
         send_resp = await client.post(
-            f"{rpc_url}",
+            rpc_url,
             headers={"Content-Type": "application/json"},
             json={
                 "jsonrpc": "2.0", "id": 1, "method": "sendTransaction",
