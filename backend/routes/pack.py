@@ -51,7 +51,9 @@ class BuyPackResponse(BaseModel):
 @router.post("/buy-pack", response_model=BuyPackResponse)
 @limiter.limit("10/minute")
 async def buy_pack(request: Request, req: BuyPackRequest):
-    await verify_transaction(req.tx_signature, SOL_PER_PACK, PACK_WALLET_ADDRESS)
+    verified = await verify_transaction(req.tx_signature, SOL_PER_PACK, PACK_WALLET_ADDRESS)
+    if not verified:
+        raise HTTPException(status_code=400, detail="Transaction verification failed")
 
     if await check_signature_used(req.tx_signature):
         raise HTTPException(status_code=400, detail="Transaction already used")
