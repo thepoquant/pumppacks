@@ -138,19 +138,33 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) 
 
         print(f"Airdrop transaction sent: {tx_sig}")
 
-        for attempt in range(30):
-            await asyncio.sleep(5)
-            confirm_resp = await client.post(
-                f"{rpc_url}",
-                json={
-                    "jsonrpc": "2.0", "id": 1, "method": "getTransaction",
-                    "params": [tx_sig, {"encoding": "base64"}],
-                },
-            )
-            if confirm_resp.status_code == 200:
-                confirm_result = confirm_resp.json()
-                if confirm_result.get("result") is not None:
-                    print(f"Airdrop confirmed: {tx_sig}")
-                    return
+        async with httpx.AsyncClient(timeout=30) as airdrop_client:
+            for attempt in range(30):
+                try:
+                    status_resp = await airdrop_client.post(
+                        rpc_url,
+                        headers={"Content-Type": "application/json"},
+                        json={
+                            "jsonrpc": "2.0",
+                            "id": 1,
+                            "method": "getSignatureStatuses",
+                            "params": [[tx_sig], {"searchTransactionHistory": True}],
+                        },
+                        timeout=15,
+                    )
+                    status_data = status_resp.json()
+                    statuses = status_data.get("result", {}).get("value", [])
+                    if statuses and statuses[0] is not None:
+                        status = statuses[0]
+                        if status.get("err") is not None:
+                            raise Exception(f"Airdrop failed on-chain: {status['err']}")
+                        confirmation = status.get("confirmationStatus", "")
+                        if confirmation in ("confirmed", "finalized"):
+                            print(f"Airdrop confirmed: {tx_sig}")
+                            return
+                    await asyncio.sleep(3)
+                except Exception as exc:
+                    print(f"Airdrop confirmation attempt {attempt + 1} failed: {exc}")
+                    await asyncio.sleep(3)
 
-        print(f"Airdrop sent but confirmation timeout: {tx_sig}")
+        print(f"Airdrop confirmation timeout after 90s: {tx_sig}")

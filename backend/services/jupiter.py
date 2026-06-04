@@ -93,30 +93,30 @@ async def buy_token(mint_address: str, sol_amount: float) -> tuple[str, int]:
     async with httpx.AsyncClient(timeout=30) as client:
         for attempt in range(30):
             try:
-                confirm_resp = await client.post(
+                status_resp = await client.post(
                     SOLANA_RPC_URL,
                     headers={"Content-Type": "application/json"},
                     json={
                         "jsonrpc": "2.0",
                         "id": 1,
-                        "method": "getTransaction",
-                        "params": [tx_sig, {"encoding": "json", "commitment": "confirmed"}],
+                        "method": "getSignatureStatuses",
+                        "params": [[tx_sig], {"searchTransactionHistory": True}],
                     },
                     timeout=15,
                 )
-                confirm_data = confirm_resp.json()
-                tx_result = confirm_data.get("result")
-                if tx_result is not None:
-                    meta = tx_result.get("meta")
-                    if meta is not None:
-                        if meta.get("err") is None:
-                            print(f"Swap confirmed: {tx_sig}")
-                            return (tx_sig, out_amount)
-                        else:
-                            raise Exception(f"Swap failed on-chain: {meta['err']}")
-                await asyncio.sleep(5)
+                status_data = status_resp.json()
+                statuses = status_data.get("result", {}).get("value", [])
+                if statuses and statuses[0] is not None:
+                    status = statuses[0]
+                    if status.get("err") is not None:
+                        raise Exception(f"Swap failed on-chain: {status['err']}")
+                    confirmation = status.get("confirmationStatus", "")
+                    if confirmation in ("confirmed", "finalized"):
+                        print(f"Swap confirmed: {tx_sig}")
+                        return (tx_sig, out_amount)
+                await asyncio.sleep(3)
             except Exception as exc:
                 print(f"Confirmation attempt {attempt + 1} failed: {exc}")
-                await asyncio.sleep(5)
+                await asyncio.sleep(3)
 
-    raise Exception(f"Swap confirmation timeout after 150s: {tx_sig}")
+    raise Exception(f"Swap confirmation timeout after 90s: {tx_sig}")
