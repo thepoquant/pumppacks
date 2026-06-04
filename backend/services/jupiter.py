@@ -27,6 +27,7 @@ async def buy_token(mint_address: str, sol_amount: float) -> tuple[str, int]:
             "amount": str(amount_lamports),
             "slippageBps": "1000",
             "restrictIntermediateTokens": "true",
+            "onlyDirectRoutes": "false",
         }
         quote_resp = await client.get(JUPITER_QUOTE_URL, params=quote_params)
         if quote_resp.status_code != 200:
@@ -43,7 +44,7 @@ async def buy_token(mint_address: str, sol_amount: float) -> tuple[str, int]:
             "quoteResponse": quote,
             "userPublicKey": str(Keypair.from_base58_string(PACK_WALLET_PRIVATE_KEY).pubkey()),
             "wrapAndUnwrapSol": True,
-            "useSharedAccounts": True,
+            "useSharedAccounts": False,
         }
         swap_resp = await client.post(JUPITER_SWAP_URL, json=swap_body)
         if swap_resp.status_code != 200:
@@ -83,6 +84,8 @@ async def buy_token(mint_address: str, sol_amount: float) -> tuple[str, int]:
         tx_sig = send_result["result"]
 
     print(f"Swap transaction sent: {tx_sig}")
+
+    await asyncio.sleep(10)
 
     for attempt in range(30):
         await asyncio.sleep(5)

@@ -15,6 +15,8 @@ async def verify_transaction(
 
     print(f"Verifying transaction {tx_signature}...")
 
+    await asyncio.sleep(5)
+
     try:
         async with AsyncClient(SOLANA_RPC_URL) as client:
             sig = Signature.from_string(tx_signature)
