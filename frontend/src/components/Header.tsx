@@ -58,7 +58,7 @@ export function Header() {
         {/* Actions */}
         <div className="flex items-center gap-3">
           <a
-            href="https://x.com/pumppackspf"
+            href="https://x.com/pumppacksfun"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="X"
