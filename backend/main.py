@@ -23,9 +23,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://pumppacks.app",
+        "https://pumppackz.fun",
+        "https://www.pumppackz.fun",
         "http://localhost:3000",
-        "https://attentive-thirteen-daintily.ngrok-free.dev",
     ],
     allow_credentials=True,
     allow_methods=["*"],
