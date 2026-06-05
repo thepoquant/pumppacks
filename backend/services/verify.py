@@ -35,10 +35,12 @@ async def verify_transaction(
                         await asyncio.sleep(RETRY_DELAY)
                     continue
 
+                logger.info(f"Result type: {type(result)}, attrs: {[a for a in dir(result) if not a.startswith('_')]}")
+
                 if attempt == 1:
                     logger.info(f"Transaction object attributes: {dir(result)}")
 
-                meta = result.transaction.meta
+                meta = result.meta
                 if meta is None or meta.err is not None:
                     print(f"Transaction failed on-chain: {meta.err if meta else 'no meta'}")
                     return False
