@@ -1,7 +1,10 @@
 import asyncio
+import logging
 from solana.rpc.async_api import AsyncClient
 from solders.signature import Signature
 from config import TEST_MODE, SOLANA_RPC_URL
+
+logger = logging.getLogger(__name__)
 
 LAMPORTS_PER_SOL = 1_000_000_000
 LAMPORT_TOLERANCE = 10_000
@@ -32,7 +35,10 @@ async def verify_transaction(
                         await asyncio.sleep(RETRY_DELAY)
                     continue
 
-                meta = result.meta
+                if attempt == 1:
+                    logger.info(f"Transaction object attributes: {dir(result)}")
+
+                meta = result.transaction.meta
                 if meta is None or meta.err is not None:
                     print(f"Transaction failed on-chain: {meta.err if meta else 'no meta'}")
                     return False
