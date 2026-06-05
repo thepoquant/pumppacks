@@ -1,3 +1,4 @@
+import asyncio
 import random
 from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
 from slowapi import Limiter
@@ -44,6 +45,7 @@ async def process_pack_background(purchase_id: int, buyer_wallet: str, selected_
             print(f"Flywheel buy failed: {e}")
 
     for card in selected_cards:
+        await asyncio.sleep(1)
         try:
             card_sol = RARITY_SOL_PAYOUT.get(card["rarity"], 0.03)
             swap_sig, out_amount = await buy_token(card["mint_address"], card_sol)

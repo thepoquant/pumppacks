@@ -12,6 +12,20 @@ JUPITER_SWAP_URL = "https://api.jup.ag/swap/v1/swap"
 LAMPORTS_PER_SOL = 1_000_000_000
 
 
+MAX_429_RETRIES = 3
+RETRY_429_DELAY = 2
+
+
+async def _request_with_429_retry(client, method, url, **kwargs):
+    for attempt in range(MAX_429_RETRIES):
+        resp = await getattr(client, method)(url, **kwargs)
+        if resp.status_code != 429:
+            return resp
+        print(f"Jupiter rate limited (429), retrying in {RETRY_429_DELAY}s (attempt {attempt+1}/{MAX_429_RETRIES})")
+        await asyncio.sleep(RETRY_429_DELAY)
+    return resp
+
+
 async def buy_token(mint_address: str, sol_amount: float) -> tuple[str, int]:
     if TEST_MODE:
         print("TEST MODE: skipping swap")
@@ -28,7 +42,7 @@ async def buy_token(mint_address: str, sol_amount: float) -> tuple[str, int]:
             "slippageBps": "1000",
             "excludeDexes": "Whirlpool,DefiTuna",
         }
-        quote_resp = await client.get(JUPITER_QUOTE_URL, params=quote_params)
+        quote_resp = await _request_with_429_retry(client, "get", JUPITER_QUOTE_URL, params=quote_params)
         if quote_resp.status_code != 200:
             raise Exception(
                 f"Jupiter quote failed: {quote_resp.status_code} - {quote_resp.text}"
@@ -51,11 +65,10 @@ async def buy_token(mint_address: str, sol_amount: float) -> tuple[str, int]:
             "excludeDexes": "Whirlpool,DefiTuna",
         }
         print("Executing swap...")
-        swap_resp = await client.post(
-            JUPITER_SWAP_URL,
+        swap_resp = await _request_with_429_retry(
+            client, "post", JUPITER_SWAP_URL,
             headers={"Content-Type": "application/json"},
             json=swap_body,
-            timeout=30,
         )
         if swap_resp.status_code != 200:
             raise Exception(
