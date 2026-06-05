@@ -8,11 +8,8 @@ logger = logging.getLogger(__name__)
 
 LAMPORTS_PER_SOL = 1_000_000_000
 LAMPORT_TOLERANCE = 10_000
-
-
 MAX_RETRIES = 20
 RETRY_DELAY = 3
-
 
 async def verify_transaction(
     tx_signature: str, expected_amount: float, expected_recipient: str
@@ -26,7 +23,7 @@ async def verify_transaction(
         try:
             async with AsyncClient(SOLANA_RPC_URL) as client:
                 sig = Signature.from_string(tx_signature)
-                resp = await client.get_transaction(sig)
+                resp = await client.get_transaction(sig, max_supported_transaction_version=0)
                 result = resp.value
 
                 if result is None:
@@ -35,19 +32,12 @@ async def verify_transaction(
                         await asyncio.sleep(RETRY_DELAY)
                     continue
 
-                logger.info(f"Result type: {type(result)}, attrs: {[a for a in dir(result) if not a.startswith('_')]}")
+                logger.info(f"Result attrs: {[a for a in dir(result) if not a.startswith('_')]}")
 
-                if attempt == 1:
-                    logger.info(f"Transaction object attributes: {dir(result)}")
-
-                meta = result.meta
-                if meta is None or meta.err is not None:
-                    print(f"Transaction failed on-chain: {meta.err if meta else 'no meta'}")
-                    return False
-
-                account_keys = result.transaction.message.account_keys
+                meta = result.transaction.meta
                 pre_balances = meta.pre_balances
                 post_balances = meta.post_balances
+                account_keys = result.transaction.transaction.message.account_keys
 
                 recipient_index = None
                 for i, key in enumerate(account_keys):
