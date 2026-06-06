@@ -6,9 +6,9 @@ import httpx
 from solders.hash import Hash
 from solders.instruction import AccountMeta, Instruction
 from solders.keypair import Keypair
-from solders.message import Message
+from solders.message import MessageV0
 from solders.pubkey import Pubkey
-from solders.transaction import Transaction
+from solders.transaction import VersionedTransaction
 
 from config import TEST_MODE, PACK_WALLET_PRIVATE_KEY, SOLANA_RPC_URL
 
@@ -159,9 +159,8 @@ async def airdrop_tokens(recipient_wallet: str, mint_address: str, amount: int) 
         blockhash_result = blockhash_resp.json()
         recent_blockhash = Hash.from_string(blockhash_result["result"]["value"]["blockhash"])
 
-        message = Message.new_with_blockhash(instructions, pack_pubkey, recent_blockhash)
-        tx = Transaction.new_unsigned(message)
-        tx.sign([keypair], recent_blockhash)
+        msg = MessageV0.try_compile(pack_pubkey, instructions, [], recent_blockhash)
+        tx = VersionedTransaction(msg, [keypair])
         signed_b64 = base64.b64encode(bytes(tx)).decode()
 
         send_resp = await client.post(

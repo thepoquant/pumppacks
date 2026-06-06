@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 LAMPORTS_PER_SOL = 1_000_000_000
 LAMPORT_TOLERANCE = 10_000
-MAX_RETRIES = 20
+MAX_RETRIES = 40
 RETRY_DELAY = 3
 
 async def verify_transaction(
@@ -19,9 +19,9 @@ async def verify_transaction(
 
     print(f"Verifying transaction {tx_signature}...")
 
-    for attempt in range(1, MAX_RETRIES + 1):
-        try:
-            async with AsyncClient(SOLANA_RPC_URL) as client:
+    async with AsyncClient(SOLANA_RPC_URL) as client:
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
                 sig = Signature.from_string(tx_signature)
                 resp = await client.get_transaction(sig, max_supported_transaction_version=0)
                 result = resp.value
@@ -59,10 +59,10 @@ async def verify_transaction(
                 print("Transaction verified successfully")
                 return True
 
-        except Exception as e:
-            print(f"Attempt {attempt}/{MAX_RETRIES}: Transaction verification failed: {e}")
-            if attempt < MAX_RETRIES:
-                await asyncio.sleep(RETRY_DELAY)
+            except Exception as e:
+                print(f"Attempt {attempt}/{MAX_RETRIES}: Transaction verification failed: {e}")
+                if attempt < MAX_RETRIES:
+                    await asyncio.sleep(RETRY_DELAY)
 
     print("Transaction verification failed after all retries")
     return False
